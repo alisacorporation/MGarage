@@ -3,9 +3,18 @@
  * Lightweight canvas chart rendering. No dependencies.
  */
 
-function setupCanvasHiDPI(canvas, cssHeight) {
+function setupCanvasHiDPI(canvas, cssHeight, fixedWidth = null) {
   const dpr = window.devicePixelRatio || 1;
-  const cssWidth = canvas.parentElement.clientWidth;
+  let cssWidth;
+  if (fixedWidth) {
+    cssWidth = fixedWidth;
+  } else {
+    const parent = canvas.parentElement;
+    const parentStyle = window.getComputedStyle(parent);
+    const paddingLeft = parseFloat(parentStyle.paddingLeft) || 0;
+    const paddingRight = parseFloat(parentStyle.paddingRight) || 0;
+    cssWidth = parent.clientWidth - paddingLeft - paddingRight;
+  }
   canvas.style.width = cssWidth + 'px';
   canvas.style.height = cssHeight + 'px';
   canvas.width = Math.round(cssWidth * dpr);
@@ -129,8 +138,8 @@ function drawLineChart(canvas, labels, values, opts = {}) {
 
 function drawDonutChart(canvas, segments, opts = {}) {
   // segments: [{ label, value, color }]
-  const { height = 200 } = opts;
-  const { ctx, width } = setupCanvasHiDPI(canvas, height);
+  const { height = 200, width: fixedWidth = height } = opts;
+  const { ctx, width } = setupCanvasHiDPI(canvas, height, fixedWidth);
   ctx.clearRect(0, 0, width, height);
 
   const total = segments.reduce((s, seg) => s + seg.value, 0) || 1;

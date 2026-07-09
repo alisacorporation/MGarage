@@ -6,7 +6,7 @@
 const $app = () => document.getElementById('app');
 const $modalRoot = () => document.getElementById('modalRoot');
 
-const money = (n) => Math.round(n || 0).toLocaleString('ru-RU') + ' ₽';
+const money = (n) => Math.round(n || 0).toLocaleString('de-DE') + ' €';
 const fmtDate = (iso) => {
   if (!iso) return '—';
   const [y, m, d] = iso.split('-');
@@ -437,12 +437,12 @@ async function renderJobForm(existingJob = null) {
 
       <div class="form-row">
         <div class="form-group">
-          <label class="field-label">Стоимость, ₽</label>
-          <input type="number" name="cost" placeholder="15000" value="${j.cost ?? ''}" inputmode="numeric" id="costInput" required />
+          <label class="field-label">Стоимость, €</label>
+          <input type="number" name="cost" placeholder="150" value="${j.cost ?? ''}" inputmode="numeric" id="costInput" required />
         </div>
         <div class="form-group">
-          <label class="field-label">Расходы, ₽</label>
-          <input type="number" name="expenses" placeholder="4000" value="${j.expenses ?? ''}" inputmode="numeric" id="expensesInput" />
+          <label class="field-label">Расходы, €</label>
+          <input type="number" name="expenses" placeholder="40" value="${j.expenses ?? ''}" inputmode="numeric" id="expensesInput" />
         </div>
       </div>
 
