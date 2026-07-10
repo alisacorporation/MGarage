@@ -14,6 +14,32 @@ const fmtDate = (iso) => {
 };
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
+const WORK_PRESETS = [
+  { name: 'Диагностика', price: 25 },
+  { name: 'Замена', price: 0 },
+  { name: 'Снятие панели', price: 0 },
+  { name: 'Установка', price: 0 },
+  { name: 'Ремонт', price: 0 },
+  { name: 'Покраска', price: 0 },
+];
+
+const genId = () => 'wi_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
+
+function getJobWorkItems(job) {
+  if (Array.isArray(job.workItems) && job.workItems.length) {
+    return job.workItems;
+  }
+  // legacy migration from old checkReplace/checkDiagnostics booleans
+  const items = [];
+  if (job.checkDiagnostics) items.push({ id: genId(), name: 'Диагностика', price: 25 });
+  if (job.checkReplace) items.push({ id: genId(), name: 'Замена', price: 0 });
+  return items;
+}
+
+function sumWorkItems(items) {
+  return items.reduce((s, i) => s + (Number(i.price) || 0), 0);
+}
+
 function toast(message, type = 'success') {
   const root = document.getElementById('toast-root');
   const el = document.createElement('div');
@@ -254,10 +280,7 @@ async function openJobDetail(jobId) {
   const before = photos.find((p) => p.type === 'before');
   const after = photos.find((p) => p.type === 'after');
   const profit = (Number(job.cost) || 0) - (Number(job.expenses) || 0);
-
-  const tags = [];
-  if (job.checkReplace) tags.push('Замена');
-  if (job.checkDiagnostics) tags.push('Диагностика');
+  const items = getJobWorkItems(job);
 
   openModal(`
     <div class="modal-title">${escapeHTML(job.brand)} ${escapeHTML(job.model)}</div>
@@ -279,7 +302,12 @@ async function openJobDetail(jobId) {
       <div class="stat-row"><span class="stat-row-label">Расходы</span><span class="stat-row-value">${money(job.expenses)}</span></div>
     </div>
 
-    ${tags.length ? `<div class="checklist-tags">${tags.map((t) => `<span class="tag-pill">${t}</span>`).join('')}</div>` : ''}
+    ${items.length ? `
+      <div class="section-label">Выполненные работы</div>
+      <div class="stat-list">
+        ${items.map((i) => `<div class="stat-row"><span class="stat-row-label">${escapeHTML(i.name || 'Без названия')}</span><span class="stat-row-value">${money(i.price)}</span></div>`).join('')}
+      </div>
+    ` : ''}
 
     ${job.description ? `<div class="divider"></div><div class="text-dim" style="font-size:13.5px;line-height:1.5">${escapeHTML(job.description)}</div>` : ''}
 
@@ -292,10 +320,15 @@ async function openJobDetail(jobId) {
     ` : ''}
 
     <div class="btn-row" style="margin-top:22px">
+      <button class="btn btn-ghost" id="printJobBtn">Печать</button>
       <button class="btn btn-ghost" id="editJobBtn">Изменить</button>
+    </div>
+    <div class="btn-row" style="margin-top:10px">
       <button class="btn btn-danger" id="deleteJobBtn">Удалить</button>
     </div>
   `, { center: true });
+
+  document.getElementById('printJobBtn').addEventListener('click', () => printJobReceipt(job, items));
 
   document.getElementById('editJobBtn').addEventListener('click', () => {
     closeModal();
@@ -304,6 +337,32 @@ async function openJobDetail(jobId) {
   });
 
   document.getElementById('deleteJobBtn').addEventListener('click', () => confirmDeleteJob(job));
+}
+
+function printJobReceipt(job, items) {
+  const total = items.length ? sumWorkItems(items) : (Number(job.cost) || 0);
+  const printArea = document.getElementById('printArea');
+  printArea.innerHTML = `
+    <div class="print-header">
+      <div class="print-logo">MGarage</div>
+      <div class="print-date">${fmtDate(job.date)}</div>
+    </div>
+    <h2>${escapeHTML(job.brand)} ${escapeHTML(job.model)} ${escapeHTML(job.generation || '')}</h2>
+    <table class="print-table">
+      <tr><td>VIN</td><td>${escapeHTML(job.vin || '—')}</td></tr>
+      <tr><td>Госномер</td><td>${escapeHTML(job.plate || '—')}</td></tr>
+      <tr><td>Пробег</td><td>${job.mileage ? job.mileage + ' км' : '—'}</td></tr>
+      <tr><td>Клиент</td><td>${escapeHTML(job.client || '—')}</td></tr>
+      <tr><td>Телефон</td><td>${escapeHTML(job.phone || '—')}</td></tr>
+    </table>
+    <h3>Выполненные работы</h3>
+    <table class="print-table">
+      ${items.length ? items.map((i) => `<tr><td>${escapeHTML(i.name || 'Работа')}</td><td>${money(i.price)}</td></tr>`).join('') : '<tr><td>Стоимость</td><td>' + money(job.cost) + '</td></tr>'}
+      <tr class="print-total"><td>Итого</td><td>${money(total)}</td></tr>
+    </table>
+    ${job.description ? `<h3>Описание</h3><p>${escapeHTML(job.description)}</p>` : ''}
+  `;
+  window.print();
 }
 
 function confirmDeleteJob(job) {
@@ -458,16 +517,16 @@ async function renderJobForm(existingJob = null) {
         <textarea name="description" placeholder="Что было сделано...">${escapeHTML(j.description)}</textarea>
       </div>
 
-      <div class="form-group">
-        <div class="checkbox-row">
-          <label class="checkbox-pill ${j.checkReplace ? 'checked' : ''}" id="pillReplace">
-            <span class="dot"></span> Замена
-            <input type="checkbox" name="checkReplace" ${j.checkReplace ? 'checked' : ''} />
-          </label>
-          <label class="checkbox-pill ${j.checkDiagnostics ? 'checked' : ''}" id="pillDiag">
-            <span class="dot"></span> Диагностика
-            <input type="checkbox" name="checkDiagnostics" ${j.checkDiagnostics ? 'checked' : ''} />
-          </label>
+      <div class="section-label">Выполненные работы</div>
+      <div class="filter-chips" id="presetChips">
+        ${WORK_PRESETS.map((p) => `<div class="chip" data-name="${escapeHTML(p.name)}" data-price="${p.price}">${escapeHTML(p.name)}${p.price ? ' · ' + p.price + ' €' : ''}</div>`).join('')}
+        <div class="chip" id="customItemChip">+ Своя работа</div>
+      </div>
+      <div id="workItemsList" style="margin-top:6px"></div>
+      <div class="card" style="padding:14px 16px;margin-bottom:14px">
+        <div class="flex-between">
+          <span class="text-dim" style="font-size:13px">Итого по работам</span>
+          <span class="kpi-value accent" id="itemsSum" style="font-size:17px">0 €</span>
         </div>
       </div>
 
@@ -512,13 +571,71 @@ async function renderJobForm(existingJob = null) {
   costInput.addEventListener('input', updateProfitPreview);
   expensesInput.addEventListener('input', updateProfitPreview);
 
-  ['pillReplace', 'pillDiag'].forEach((id) => {
-    const pill = document.getElementById(id);
-    pill.addEventListener('click', () => {
-      const cb = pill.querySelector('input');
-      setTimeout(() => pill.classList.toggle('checked', cb.checked), 0);
+  let workItems = getJobWorkItems(j).map((i) => ({ ...i }));
+
+  function renderWorkItemsList() {
+    const root = document.getElementById('workItemsList');
+    if (!workItems.length) {
+      root.innerHTML = `<div class="text-faint" style="font-size:12.5px;padding:2px 2px 10px">Нажмите на работу выше, чтобы добавить её в список</div>`;
+      return;
+    }
+    root.innerHTML = workItems.map((item) => `
+      <div class="work-item-row" data-id="${item.id}">
+        <input type="text" class="wi-name" value="${escapeHTML(item.name)}" placeholder="Название работы" />
+        <input type="number" class="wi-price" value="${item.price}" placeholder="0" inputmode="numeric" />
+        <span class="wi-currency">€</span>
+        <button type="button" class="wi-remove">✕</button>
+      </div>`).join('');
+
+    root.querySelectorAll('.work-item-row').forEach((row) => {
+      const id = row.dataset.id;
+      row.querySelector('.wi-name').addEventListener('input', (e) => {
+        const it = workItems.find((w) => w.id === id);
+        if (it) it.name = e.target.value;
+      });
+      row.querySelector('.wi-price').addEventListener('input', (e) => {
+        const it = workItems.find((w) => w.id === id);
+        if (it) it.price = Number(e.target.value) || 0;
+        updateItemsSumDisplay();
+        syncCostFromItems();
+      });
+      row.querySelector('.wi-remove').addEventListener('click', () => {
+        workItems = workItems.filter((w) => w.id !== id);
+        renderWorkItemsList();
+        updateItemsSumDisplay();
+        syncCostFromItems();
+      });
     });
+  }
+
+  function updateItemsSumDisplay() {
+    document.getElementById('itemsSum').textContent = money(sumWorkItems(workItems));
+  }
+
+  function syncCostFromItems() {
+    if (workItems.length) {
+      costInput.value = sumWorkItems(workItems);
+      updateProfitPreview();
+    }
+  }
+
+  document.getElementById('presetChips').addEventListener('click', (e) => {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+    if (chip.id === 'customItemChip') {
+      workItems.push({ id: genId(), name: '', price: 0 });
+    } else {
+      workItems.push({ id: genId(), name: chip.dataset.name, price: Number(chip.dataset.price) || 0 });
+    }
+    renderWorkItemsList();
+    updateItemsSumDisplay();
+    syncCostFromItems();
+    const lastInput = document.querySelector('#workItemsList .work-item-row:last-child .wi-name');
+    if (lastInput) lastInput.focus();
   });
+
+  renderWorkItemsList();
+  updateItemsSumDisplay();
 
   function wirePhotoDrop(dropId, fileId, target) {
     const drop = document.getElementById(dropId);
@@ -570,8 +687,7 @@ async function renderJobForm(existingJob = null) {
       cost: Number(fd.get('cost')) || 0,
       expenses: Number(fd.get('expenses')) || 0,
       description: fd.get('description').trim(),
-      checkReplace: fd.get('checkReplace') === 'on',
-      checkDiagnostics: fd.get('checkDiagnostics') === 'on',
+      workItems: workItems.filter((i) => i.name.trim() || i.price),
       thumb: newPhotoAfterData || newPhotoBeforeData || null,
     };
 
