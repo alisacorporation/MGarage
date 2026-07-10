@@ -4,12 +4,13 @@
  * except the app's own static assets on first load.
  */
 
-const CACHE_NAME = 'mgarage-cache-v1';
+const CACHE_NAME = 'mgarage-cache-v2';
 const CORE_ASSETS = [
   './',
   './index.html',
   './style.css',
   './db.js',
+  './cardata.js',
   './ui.js',
   './app.js',
   './charts.js',

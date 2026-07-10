@@ -449,22 +449,26 @@ async function renderJobForm(existingJob = null) {
       <div class="form-row">
         <div class="form-group">
           <label class="field-label">Марка</label>
-          <input type="text" name="brand" placeholder="BMW" value="${escapeHTML(j.brand)}" required />
+          <select id="brandSelect"></select>
+          <input type="text" id="brandCustom" placeholder="Введите марку" class="hidden" style="margin-top:8px" />
         </div>
         <div class="form-group">
           <label class="field-label">Модель</label>
-          <input type="text" name="model" placeholder="M3" value="${escapeHTML(j.model)}" required />
+          <select id="modelSelect"></select>
+          <input type="text" id="modelCustom" placeholder="Введите модель" class="hidden" style="margin-top:8px" />
         </div>
       </div>
 
       <div class="form-row">
         <div class="form-group">
-          <label class="field-label">Поколение</label>
-          <input type="text" name="generation" placeholder="G80" value="${escapeHTML(j.generation)}" />
+          <label class="field-label">Поколение / серия</label>
+          <select id="genSelect" class="hidden"></select>
+          <input type="text" id="genCustom" placeholder="Например, G80" />
         </div>
         <div class="form-group">
           <label class="field-label">Кузов</label>
-          <input type="text" name="body" placeholder="Седан" value="${escapeHTML(j.body)}" />
+          <select id="bodySelect"></select>
+          <input type="text" id="bodyCustom" placeholder="Введите тип кузова" class="hidden" style="margin-top:8px" />
         </div>
       </div>
 
@@ -562,6 +566,131 @@ async function renderJobForm(existingJob = null) {
   const costInput = document.getElementById('costInput');
   const expensesInput = document.getElementById('expensesInput');
   const profitPreview = document.getElementById('profitPreview');
+
+  // ---- Cascading Марка / Модель / Поколение / Кузов ----
+  const brandSelect = document.getElementById('brandSelect');
+  const brandCustom = document.getElementById('brandCustom');
+  const modelSelect = document.getElementById('modelSelect');
+  const modelCustom = document.getElementById('modelCustom');
+  const genSelect = document.getElementById('genSelect');
+  const genCustom = document.getElementById('genCustom');
+  const bodySelect = document.getElementById('bodySelect');
+  const bodyCustom = document.getElementById('bodyCustom');
+
+  function optionsHTML(list) {
+    return list.map((o) => `<option value="${escapeHTML(o)}">${escapeHTML(o)}</option>`).join('')
+      + `<option value="${OTHER_OPTION}">Другое / вписать вручную...</option>`;
+  }
+
+  function selectValueOrOther(selectEl, list, value) {
+    if (value) {
+      if (list.includes(value)) { selectEl.value = value; return false; }
+      selectEl.value = OTHER_OPTION;
+      return true;
+    }
+    // No existing value (new job) — default to the first real option, not "Другое".
+    selectEl.value = list[0] || OTHER_OPTION;
+    return false;
+  }
+
+  function populateBrand() {
+    const brands = Object.keys(CAR_DB).sort((a, b) => a.localeCompare(b, 'ru'));
+    brandSelect.innerHTML = optionsHTML(brands);
+    const isOther = selectValueOrOther(brandSelect, brands, j.brand);
+    brandCustom.classList.toggle('hidden', !isOther);
+    if (isOther) brandCustom.value = j.brand || '';
+  }
+
+  function populateModel(preselectModel) {
+    const brand = brandSelect.value === OTHER_OPTION ? null : brandSelect.value;
+    const modelMap = (brand && CAR_DB[brand]) || {};
+    const models = Object.keys(modelMap).sort((a, b) => a.localeCompare(b, 'ru'));
+    if (models.length) {
+      modelSelect.innerHTML = optionsHTML(models);
+      const isOther = selectValueOrOther(modelSelect, models, preselectModel);
+      modelCustom.classList.toggle('hidden', !isOther);
+      if (isOther) modelCustom.value = (preselectModel && !models.includes(preselectModel)) ? preselectModel : '';
+    } else {
+      // brand unknown/custom -> no known model list, go straight to free text
+      modelSelect.innerHTML = `<option value="${OTHER_OPTION}">Другое / вписать вручную...</option>`;
+      modelSelect.value = OTHER_OPTION;
+      modelCustom.classList.remove('hidden');
+      modelCustom.value = preselectModel || '';
+    }
+  }
+
+  function currentBrandValue() {
+    return brandSelect.value === OTHER_OPTION ? brandCustom.value.trim() : brandSelect.value;
+  }
+  function currentModelValue() {
+    return modelSelect.value === OTHER_OPTION ? modelCustom.value.trim() : modelSelect.value;
+  }
+
+  function populateGeneration(preselectGen) {
+    const brand = currentBrandValue();
+    const model = currentModelValue();
+    const gens = (CAR_DB[brand] && CAR_DB[brand][model]) || null;
+    if (gens && gens.length) {
+      genSelect.classList.remove('hidden');
+      genSelect.innerHTML = optionsHTML(gens);
+      const isOther = selectValueOrOther(genSelect, gens, preselectGen);
+      genCustom.classList.toggle('hidden', !isOther);
+      if (isOther) genCustom.value = (preselectGen && !gens.includes(preselectGen)) ? preselectGen : '';
+    } else {
+      genSelect.classList.add('hidden');
+      genCustom.classList.remove('hidden');
+      genCustom.value = preselectGen || '';
+    }
+  }
+
+  function populateBody() {
+    bodySelect.innerHTML = BODY_TYPES.map((o) => `<option value="${escapeHTML(o)}">${escapeHTML(o)}</option>`).join('');
+    if (j.body && BODY_TYPES.includes(j.body) && j.body !== 'Другое') {
+      bodySelect.value = j.body;
+      bodyCustom.classList.add('hidden');
+    } else if (j.body) {
+      bodySelect.value = 'Другое';
+      bodyCustom.classList.remove('hidden');
+      bodyCustom.value = j.body;
+    } else {
+      bodySelect.value = BODY_TYPES[0];
+      bodyCustom.classList.add('hidden');
+    }
+  }
+
+  populateBrand();
+  populateModel(j.model);
+  populateGeneration(j.generation);
+  populateBody();
+
+  brandSelect.addEventListener('change', () => {
+    const isOther = brandSelect.value === OTHER_OPTION;
+    brandCustom.classList.toggle('hidden', !isOther);
+    if (isOther) { brandCustom.value = ''; brandCustom.focus(); }
+    populateModel(null);
+    populateGeneration(null);
+  });
+  brandCustom.addEventListener('input', () => populateGeneration(null));
+
+  modelSelect.addEventListener('change', () => {
+    const isOther = modelSelect.value === OTHER_OPTION;
+    modelCustom.classList.toggle('hidden', !isOther);
+    if (isOther) { modelCustom.value = ''; modelCustom.focus(); }
+    populateGeneration(null);
+  });
+  modelCustom.addEventListener('input', () => populateGeneration(null));
+
+  genSelect.addEventListener('change', () => {
+    const isOther = genSelect.value === OTHER_OPTION;
+    genCustom.classList.toggle('hidden', !isOther);
+    if (isOther) { genCustom.value = ''; genCustom.focus(); }
+  });
+
+  bodySelect.addEventListener('change', () => {
+    const isOther = bodySelect.value === 'Другое';
+    bodyCustom.classList.toggle('hidden', !isOther);
+    if (isOther) { bodyCustom.value = ''; bodyCustom.focus(); }
+  });
 
   function updateProfitPreview() {
     const cost = Number(costInput.value) || 0;
@@ -673,12 +802,20 @@ async function renderJobForm(existingJob = null) {
     e.preventDefault();
     const fd = new FormData(form);
 
+    const finalBrand = currentBrandValue();
+    const finalModel = currentModelValue();
+    const finalGeneration = (genSelect.classList.contains('hidden') ? genCustom.value : (genSelect.value === OTHER_OPTION ? genCustom.value : genSelect.value)).trim();
+    const finalBody = (bodySelect.value === 'Другое' ? bodyCustom.value : bodySelect.value).trim();
+
+    if (!finalBrand) { toast('Укажите марку автомобиля', 'error'); brandCustom.classList.contains('hidden') ? brandSelect.focus() : brandCustom.focus(); return; }
+    if (!finalModel) { toast('Укажите модель автомобиля', 'error'); modelCustom.classList.contains('hidden') ? modelSelect.focus() : modelCustom.focus(); return; }
+
     const jobData = {
       date: fd.get('date'),
-      brand: fd.get('brand').trim(),
-      model: fd.get('model').trim(),
-      generation: fd.get('generation').trim(),
-      body: fd.get('body').trim(),
+      brand: finalBrand,
+      model: finalModel,
+      generation: finalGeneration,
+      body: finalBody,
       vin: fd.get('vin').trim().toUpperCase(),
       plate: fd.get('plate').trim().toUpperCase(),
       mileage: fd.get('mileage') ? Number(fd.get('mileage')) : null,
