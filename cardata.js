@@ -308,6 +308,29 @@ const BODY_TYPES = [
 
 const OTHER_OPTION = '__other__';
 
+// Heuristic model-name -> body-type guesser, used to auto-fill "Кузов" when
+// a model is picked (e.g. BMW X5 -> Внедорожник). Purely a convenience
+// default — the user can always change it manually afterwards.
+const BODY_TYPE_RULES = [
+  { test: /pickup|hilux|ranger\b|navara|l200|amarok|tundra|f-150|silverado|профи\b|profi\b/i, type: 'Пикап' },
+  { test: /sprinter|\bvito\b|multivan|transporter|transit\b|berlingo|partner\b|caddy|traveller|соболь|газель/i, type: 'Фургон' },
+  { test: /roadster|boxster|miata|mx-5|^z4$/i, type: 'Родстер' },
+  { test: /cabrio|convertible|spider/i, type: 'Кабриолет' },
+  { test: /coupe|gran coupe|\b4c\b|amg gt|^911$|cayman|f-type|supra/i, type: 'Купе' },
+  { test: /minivan|zafira|sienna|odyssey|voyager|touran|sharan|alhambra|буханка/i, type: 'Минивэн' },
+  { test: /^x[1-7]$|^q[2-8]$|^gl[aecs]|g-class|rav4|highlander|land cruiser|prado|fortuner|cr-v|hr-v|\bpilot\b|x-trail|murano|pathfinder|\bpatrol\b|qashqai|juke|outlander|\basx\b|pajero|forester|\bxv\b|\bnx\b|\brx\b|\bgx\b|\blx\b|qx\d|tiguan|touareg|kodiaq|karoq|\byeti\b|kuga|explorer|tucson|santa fe|sportage|sorento|duster|kaptur|captur|captiva|trailblazer|range rover|discovery|defender|macan|cayenne|countryman|niva|patriot|hunter\b|creta|palisade|seltos|xc40|xc60|xc90|e-pace|f-pace|i-pace|e-tron|model x|model y|escalade|coolray|atlas|tugella|monjaro|jolion|\bf7\b|dargo|cs35|cs55|cs75|uni-k|song plus|\btang\b|\btxl\b|\bvx\b|tank 300|tank 500|rexton|kyron|actyon|grand vitara|vitara|3008|4008|5008|mokka|crossland|grandland|t-roc|t-cross|\btaos\b|ecosport|edge\b|gv70|gv80|q4 e-tron|^ix$|c-hr/i, type: 'Внедорожник' },
+  { test: /golf|^polo$|fiesta|^corsa$|fabia|swift|^yaris$|^note$|micra|\b206\b|\b207\b|^208$|clio|^500$|jazz|^fit$|i30|ceed|picanto/i, type: 'Хэтчбек' },
+];
+
+function guessBodyType(model) {
+  if (!model) return null;
+  for (const rule of BODY_TYPE_RULES) {
+    if (rule.test.test(model)) return rule.type;
+  }
+  return null; // unknown -> don't guess, let the default/sedan stand
+}
+
 window.CAR_DB = CAR_DB;
 window.BODY_TYPES = BODY_TYPES;
 window.OTHER_OPTION = OTHER_OPTION;
+window.guessBodyType = guessBodyType;

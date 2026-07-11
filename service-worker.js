@@ -4,7 +4,7 @@
  * except the app's own static assets on first load.
  */
 
-const CACHE_NAME = 'mgarage-cache-v2';
+const CACHE_NAME = 'mgarage-cache-v3';
 const CORE_ASSETS = [
   './',
   './index.html',

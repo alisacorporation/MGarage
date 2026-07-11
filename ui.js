@@ -663,12 +663,28 @@ async function renderJobForm(existingJob = null) {
   populateGeneration(j.generation);
   populateBody();
 
+  // Auto-fill body type from the model name (e.g. X5 -> Внедорожник), unless
+  // we're editing a job that already has a body type saved, or the user has
+  // manually changed the body dropdown themselves.
+  let bodyManuallySet = isEdit && !!j.body;
+
+  function autoGuessBody() {
+    if (bodyManuallySet) return;
+    const guessed = guessBodyType(currentModelValue());
+    if (guessed && BODY_TYPES.includes(guessed)) {
+      bodySelect.value = guessed;
+      bodyCustom.classList.add('hidden');
+    }
+  }
+  autoGuessBody();
+
   brandSelect.addEventListener('change', () => {
     const isOther = brandSelect.value === OTHER_OPTION;
     brandCustom.classList.toggle('hidden', !isOther);
     if (isOther) { brandCustom.value = ''; brandCustom.focus(); }
     populateModel(null);
     populateGeneration(null);
+    autoGuessBody();
   });
   brandCustom.addEventListener('input', () => populateGeneration(null));
 
@@ -677,8 +693,12 @@ async function renderJobForm(existingJob = null) {
     modelCustom.classList.toggle('hidden', !isOther);
     if (isOther) { modelCustom.value = ''; modelCustom.focus(); }
     populateGeneration(null);
+    autoGuessBody();
   });
-  modelCustom.addEventListener('input', () => populateGeneration(null));
+  modelCustom.addEventListener('input', () => {
+    populateGeneration(null);
+    autoGuessBody();
+  });
 
   genSelect.addEventListener('change', () => {
     const isOther = genSelect.value === OTHER_OPTION;
@@ -687,10 +707,12 @@ async function renderJobForm(existingJob = null) {
   });
 
   bodySelect.addEventListener('change', () => {
+    bodyManuallySet = true;
     const isOther = bodySelect.value === 'Другое';
     bodyCustom.classList.toggle('hidden', !isOther);
     if (isOther) { bodyCustom.value = ''; bodyCustom.focus(); }
   });
+  bodyCustom.addEventListener('input', () => { bodyManuallySet = true; });
 
   function updateProfitPreview() {
     const cost = Number(costInput.value) || 0;
