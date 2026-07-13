@@ -130,11 +130,21 @@ const DB = {
   },
 
   async deleteJobCascade(jobId) {
+    const job = await DB.get(STORES.jobs, jobId);
     const photos = await DB.getPhotosByJob(jobId);
     for (const p of photos) {
       await DB.delete(STORES.photos, p.id);
     }
     await DB.delete(STORES.jobs, jobId);
+
+    // If that was the last job for this car, drop the orphaned car record
+    // too, so the "машин в базе" count on the home screen stays accurate.
+    if (job && job.carId != null) {
+      const remainingJobs = await DB.getJobsByCar(job.carId);
+      if (remainingJobs.length === 0) {
+        await DB.delete(STORES.cars, job.carId);
+      }
+    }
   },
 
   async setSetting(key, value) {

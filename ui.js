@@ -536,19 +536,20 @@ async function renderJobForm(existingJob = null) {
 
       <div class="section-label">Фотографии</div>
       <div class="photo-upload-row">
-        <div class="photo-drop ${photoBefore ? 'has-image' : ''}" id="dropBefore">
+        <label class="photo-drop ${photoBefore ? 'has-image' : ''}" id="dropBefore" for="fileBefore">
           <img src="${photoBefore ? photoBefore.data : ''}" style="${photoBefore ? '' : 'display:none'}" />
           <div class="photo-drop-label"><svg viewBox="0 0 24 24"><path d="M4 12l1.5-6h13L20 12M4 12v6a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-6M4 12h16"/></svg>Фото ДО</div>
           <button type="button" class="photo-drop-remove" data-target="before">✕</button>
-          <input type="file" accept="image/*" capture="environment" id="fileBefore" style="position:absolute;inset:0;opacity:0;cursor:pointer" />
-        </div>
-        <div class="photo-drop ${photoAfter ? 'has-image' : ''}" id="dropAfter">
+          <input type="file" accept="image/*" id="fileBefore" class="visually-hidden" />
+        </label>
+        <label class="photo-drop ${photoAfter ? 'has-image' : ''}" id="dropAfter" for="fileAfter">
           <img src="${photoAfter ? photoAfter.data : ''}" style="${photoAfter ? '' : 'display:none'}" />
           <div class="photo-drop-label"><svg viewBox="0 0 24 24"><path d="M4 12l1.5-6h13L20 12M4 12v6a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-6M4 12h16"/></svg>Фото ПОСЛЕ</div>
           <button type="button" class="photo-drop-remove" data-target="after">✕</button>
-          <input type="file" accept="image/*" capture="environment" id="fileAfter" style="position:absolute;inset:0;opacity:0;cursor:pointer" />
-        </div>
+          <input type="file" accept="image/*" id="fileAfter" class="visually-hidden" />
+        </label>
       </div>
+
 
       <div class="btn-row" style="margin-top:24px">
         ${isEdit ? '<button type="button" class="btn btn-ghost" id="cancelEditBtn">Отмена</button>' : ''}
@@ -802,6 +803,7 @@ async function renderJobForm(existingJob = null) {
       else { newPhotoAfterData = dataUrl; removeAfter = false; }
     });
     drop.querySelector('.photo-drop-remove').addEventListener('click', (e) => {
+      e.preventDefault();
       e.stopPropagation();
       drop.classList.remove('has-image');
       drop.querySelector('img').style.display = 'none';
